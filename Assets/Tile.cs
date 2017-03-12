@@ -13,40 +13,40 @@ public class Tile : MonoBehaviour
     bool inOnMouseDown = false;
 
 	GameObject currentHit;
-	
+
     // Use this for initialization
     void Start()
     {
+        camera = GetComponent<Camera>();
 
     }
 
-    void _OnMouseUp()
+    void _OnMouseUp(bool touch)
     {
         GameObject.Find("Text").GetComponent<Text>().text = "_OnMouseUp()";
         Debug.Log("_OnMouseUp");
         inOnMouseDown = false;
+        currentHit = null;
     }
 
     void _OnMouseDrag(bool touch)
     {
-        GameObject.Find("Text").GetComponent<Text>().text = "_OnMouseDrag()";
+        GameObject.Find("Text").GetComponent<Text>().text = "_OnMouseDrag() " + currentHit;
         Debug.Log ("_OnMouseDrag");
 
         // if we get a position from the touch screen where it is
         if (touch)
         {
-            if (camera == null)
-                camera = GameObject.Find("Main Camera").GetComponent<Camera>();
-
             Vector3 curScreenPoint = camera.ScreenToWorldPoint(new Vector3(Input.GetTouch(0).position.x, Input.GetTouch(0).position.y, screenPoint.z));
-            transform.position = curScreenPoint;
+            if (currentHit != null)
+            {
+                currentHit.transform.position = curScreenPoint;
+            }
         }
         // if we need to find the position of the mouse on the screen
         else {
             Vector3 curScreenPoint = new Vector3(Input.mousePosition.x, Input.mousePosition.y, screenPoint.z);
-            if (camera == null)
-                camera = GameObject.Find("Main Camera").GetComponent<Camera>();
-
+            
             Vector3 curPosition = camera.ScreenToWorldPoint(curScreenPoint) + offset;
 
             if (currentHit != null)
@@ -56,25 +56,25 @@ public class Tile : MonoBehaviour
         }
     }
 
-    void _OnMouseDown()
+    void _OnMouseDown(bool touch)
     {
-        GameObject.Find("Text").GetComponent<Text>().text = "_OnMouseDown()";
+        GameObject.Find("Text").GetComponent<Text>().text = "_OnMouseDown() " + currentHit;
         Debug.Log("_OnMouseDown " + name); ;
         inOnMouseDown = true;
-        if (camera == null)
-            camera = GameObject.Find("Main Camera").GetComponent<Camera>();
 
         // if this is from a touch call
-        if (currentHit == null) {
-            origin = transform.position;
-            screenPoint = camera.WorldToScreenPoint(transform.position);
+        if (touch) {
+            origin = currentHit.transform.position;
+            screenPoint = camera.WorldToScreenPoint(currentHit.gameObject.transform.position);
+            offset = currentHit.gameObject.transform.position - camera.ScreenToWorldPoint(new Vector3(Input.GetTouch(0).position.x, Input.GetTouch(0).position.y, screenPoint.z));
+            GameObject.Find("Text").GetComponent<Text>().text = currentHit.gameObject.name;
         }
         // if this is from a mouse call, find the current position
         else { 
-			origin = currentHit.transform.position;
-			screenPoint = camera.WorldToScreenPoint(currentHit.gameObject.transform.position);
-			offset = currentHit.gameObject.transform.position - camera.ScreenToWorldPoint(new Vector3(Input.mousePosition.x, Input.mousePosition.y, screenPoint.z));
-		}
+            origin = currentHit.transform.position;
+            screenPoint = camera.WorldToScreenPoint(currentHit.gameObject.transform.position);
+            offset = currentHit.gameObject.transform.position - camera.ScreenToWorldPoint(new Vector3(Input.mousePosition.x, Input.mousePosition.y, screenPoint.z));
+        }
     }
    
     // Update is called once per frame
@@ -86,7 +86,7 @@ public class Tile : MonoBehaviour
             if (touch.phase == TouchPhase.Ended)
             {
                 // up
-                _OnMouseUp();
+                _OnMouseUp(true);
             }
             if (touch.phase == TouchPhase.Moved)
             {
@@ -96,7 +96,16 @@ public class Tile : MonoBehaviour
             if (touch.phase == TouchPhase.Began)
             {
                 // down
-                _OnMouseDown();
+                RaycastHit2D hit = Physics2D.Raycast(camera.ScreenToWorldPoint(Input.GetTouch(0).position), Vector2.zero);
+                if (hit.collider != null)
+                {
+                    // can't use current hit as slots
+                    if (hit.collider.gameObject != null)
+                    {
+                        currentHit = hit.collider.gameObject;
+                        _OnMouseDown(true);
+                    }
+                }
             }
         }
 
@@ -104,8 +113,6 @@ public class Tile : MonoBehaviour
         if (Input.GetMouseButtonDown(0))
         {
             // the screen is currently being touched for the first time
-            if (camera == null)
-                camera = GameObject.Find("Main Camera").GetComponent<Camera>();
             RaycastHit2D hit = Physics2D.Raycast(camera.ScreenToWorldPoint(Input.mousePosition), Vector2.zero);
             if (hit.collider != null)
             {
@@ -113,15 +120,14 @@ public class Tile : MonoBehaviour
                 if (hit.collider.gameObject != null)
                 {
                     currentHit = hit.collider.gameObject;
-                    _OnMouseDown();
+                    _OnMouseDown(false);
                 }
             }
         }
         else if (Input.GetMouseButtonUp(0))
         {
             // the screen is currently stopped being touched
-            _OnMouseUp();
-            currentHit = null;
+            _OnMouseUp(false);
         }
         else if (Input.GetMouseButton(0))
         {
